@@ -110,6 +110,7 @@ def train(
     """
     if os.environ.get("MLFLOW_TRACKING_URI"):
         mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+    mlflow.set_experiment(os.environ.get("MLFLOW_EXPERIMENT", "wine-quality"))
 
     df_train = pd.read_csv(data_path)
     df_eval = pd.read_csv(eval_path)
