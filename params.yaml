@@ -2,6 +2,7 @@
 # de thi nghiem (Buoc 1, Bonus 2).
 
 # model_type: random_forest | gradient_boosting | logistic_regression
+# Chon random_forest (300/None/2) vi cho accuracy cao nhat sau khi thu 17 run o Buoc 1.
 model_type: random_forest
 
 random_forest:
