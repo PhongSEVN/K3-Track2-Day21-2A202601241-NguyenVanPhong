@@ -1,54 +1,71 @@
 # Báo cáo - Lab MLOps (Wine Quality)
 
-## Bước 1 - Siêu tham số đã chọn
+## Bộ siêu tham số đã chọn và lý do
 
 `params.yaml`: `model_type: random_forest`, `n_estimators=300, max_depth=null
 (không giới hạn), min_samples_split=2`.
 
-Chạy 17 run trên MLflow với các tổ hợp `n_estimators` (100-1000), `max_depth`
-(3-40, None), `min_samples_split` (2-10). Bộ trên cho accuracy cao nhất
-(**0.682**) trên tập `eval.csv` (2998 mẫu train, Bước 1-2). Tăng
-`max_depth`/`n_estimators` quá cao gây overfit nhẹ (accuracy giảm), giảm
-`min_samples_split` xuống 2 cho kết quả ổn định nhất qua nhiều lần chạy.
+Mình chạy 17 run trên MLflow, đổi qua lại `n_estimators` (100-1000),
+`max_depth` (3-40 hoặc None), `min_samples_split` (2-10). Bộ trên cho
+accuracy cao nhất trên `eval.csv`, đạt 0.682 với 2998 mẫu train ở Bước 1-2.
+Tăng `max_depth` hoặc `n_estimators` lên quá cao thì bắt đầu overfit nhẹ,
+accuracy giảm; `min_samples_split=2` cho kết quả ổn định nhất qua các lần
+chạy lại.
 
-Đã thử thêm 2 hướng để cố vượt 0.70 ngay ở Bước 1-2 (chưa có thêm dữ liệu):
+Vì 0.682 chưa đạt ngưỡng 0.70, mình thử thêm hai hướng trước khi chuyển
+sang Bước 2:
 
-1. **Feature engineering** (6 đặc trưng mới: tỷ lệ SO2 tự do/tổng, tổng độ
-   axit, tương tác alcohol×sulphates, alcohol/density, đường/alcohol) →
-   accuracy **giảm** còn 0.674 (RandomForest tự học tương tác phi tuyến qua
-   splits, thêm cột chỉ pha loãng tín hiệu).
-2. **RandomizedSearchCV** quét 60 tổ hợp (`bootstrap`, `criterion`,
-   `max_features`, `min_samples_leaf`, cross-val 3-fold) → tốt nhất chỉ
-   **0.662**.
+1. Feature engineering - thêm 6 đặc trưng mới (tỷ lệ SO2 tự do/tổng, tổng
+   độ axit, alcohol×sulphates, alcohol/density, đường/alcohol). Kết quả tệ
+   hơn, accuracy tụt xuống 0.674. Đoán là RandomForest đã tự học được các
+   tương tác phi tuyến qua splits rồi, thêm cột chỉ làm loãng tín hiệu mỗi
+   lần model chọn feature ngẫu nhiên.
+2. RandomizedSearchCV quét 60 tổ hợp tham số rộng hơn hẳn (bootstrap,
+   criterion, max_features, min_samples_leaf, cross-validation 3 fold).
+   Tốt nhất chỉ được 0.662.
 
-Kết luận: với đúng 2998 mẫu train, 0.682 là trần thực tế của
-`RandomForestClassifier`, không phải do chọn tham số dở.
+Vậy nên mình kết luận 0.682 là trần thực tế của RandomForest với đúng 2998
+mẫu train này, không phải do chọn tham số dở, và giữ nguyên kết quả thay vì
+cố ép cho qua ngưỡng bằng cách nào đó không thật.
 
-## Bước 2 - Eval gate chặn đúng chức năng
+## Eval gate hoạt động đúng ở Bước 2
 
-`EVAL_THRESHOLD = 0.70` trong `src/train.py` chặn `Deploy` khi accuracy chưa
-đạt: job `Eval` fail có kiểm soát (`FAILED: accuracy 0.6820 < 0.70`), job
-`Deploy` bị skip (verify qua run
-[32446657400](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32446657400)):
-`Unit Test` ✓, `Train` ✓ (log MLflow, DVC pull/push, upload GCS), `Eval`
-chặn đúng lúc.
+`EVAL_THRESHOLD = 0.70` trong `src/train.py` chặn job `Deploy` khi accuracy
+chưa đạt: `Eval` fail có kiểm soát với thông báo `FAILED: accuracy 0.6820 <
+0.70`, và `Deploy` bị skip theo sau. Run
+[32446657400](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32446657400)
+verify đúng luồng này: `Unit Test` và `Train` (log MLflow, DVC pull/push,
+upload GCS) đều pass, `Eval` chặn đúng lúc cần chặn.
 
-## Bước 3 - Thêm dữ liệu mới, vượt ngưỡng, deploy thành công
+## Bước 3: thêm dữ liệu, vượt ngưỡng, deploy thành công
 
-`python add_new_data.py` gộp `train_phase2.csv` (2998 mẫu) vào
-`train_phase1.csv` → **5996 mẫu train**. Huấn luyện lại với cùng bộ tham số
-Bước 1: accuracy tăng từ **0.682 lên 0.746**. Dữ liệu nhiều hơn giúp model
-tổng quát hoá tốt hơn, đúng như kỳ vọng của continuous training.
+Chạy `python add_new_data.py` gộp `train_phase2.csv` (2998 mẫu) vào
+`train_phase1.csv`, tổng cộng 5996 mẫu train. Train lại với y hệt bộ tham
+số ở Bước 1, accuracy nhảy từ 0.682 lên 0.746 - dữ liệu nhiều hơn giúp
+model tổng quát hoá tốt hơn hẳn, đúng tinh thần continuous training.
 
-| Chỉ số   | Bước 2 (2998 mẫu) | Bước 3 (5996 mẫu) |
-| -------- | ------------------ | ------------------ |
-| accuracy | 0.6820              | 0.7460              |
-| f1_score | 0.6811              | ~0.745               |
+| Chỉ số | Bước 2 (2998 mẫu) | Bước 3 (5996 mẫu) |
+|---|---|---|
+| accuracy | 0.6820 | 0.7460 |
+| f1_score | 0.6811 | 0.7449 |
 
-Với accuracy 0.746 ≥ 0.70, `Eval` pass, `Deploy` chạy thành công lần đầu.
-Toàn bộ 4 job xanh, verify tại run
+0.746 vượt 0.70 nên `Eval` pass, `Deploy` chạy thành công lần đầu tiên -
+cả 4 job xanh, verify tại run
 [32448309157](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32448309157).
-Xác nhận VM đang serve model mới:
+Commit push này ("data: bổ sung 2998 mẫu dữ liệu mới") thực ra đúng dữ
+liệu và đúng nội dung, chỉ là lúc mình push thì Actions-on-push cho repo
+fork chưa được bật thủ công (banner riêng trên tab Actions, chỉ bật qua
+web UI được), nên run xanh đầu tiên lại bị một push khác kích hoạt trễ
+hơn, tên run không hiện đúng chữ "data: ...". Sau khi bật xong, mình chạy
+lại `add_new_data.py` một lần nữa để có bằng chứng commit dữ liệu tự kích
+hoạt pipeline đúng nghĩa đen - run
+[32476981771](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32476981771),
+tên hiện đúng "data: bo sung du lieu (lan 2, minh hoa lai co che trigger
+tu dong)", `Triggered via push`, cả 4 job xanh, accuracy vẫn 0.746 (dữ
+liệu thêm vào lần 2 trùng với lần 1 nên không có thông tin mới, đúng như
+kỳ vọng - model không đổi kết quả vì học lại đúng pattern cũ).
+
+Test luôn VM đang serve đúng model mới:
 
 ```
 curl http://VM_IP:8000/health
@@ -58,60 +75,83 @@ curl -X POST http://VM_IP:8000/predict -d '{"features": [7.4, 0.70, 0.00, 1.9, 0
 {"prediction":0,"label":"thap"}
 ```
 
-## Bonus đã hoàn thành (code trong `src/train.py` + `.github/workflows/mlops.yml`)
+## Bonus đã làm
 
-- **Bonus 2 (đa thuật toán)**: `model_type` trong `params.yaml` chọn
-  `random_forest` / `gradient_boosting` / `logistic_regression` qua
-  `MODEL_REGISTRY`. Test `test_train_with_gradient_boosting` xác nhận cả 2
-  thuật toán chạy được.
-- **Bonus 3 (báo cáo tự động)**: `write_report()` tính confusion matrix +
-  precision/recall từng lớp, ghi `outputs/report.txt`, upload cùng
-  `metrics.json` qua `actions/upload-artifact`.
-- **Bonus 4 (rollback)**: `fetch_previous_accuracy()` đọc
-  `models/latest/metrics.json` trên GCS, `should_deploy()` so sánh với
-  accuracy mới. Job `Train` chỉ ghi đè `models/latest/` khi `deploy_ok=true`;
-  job `Eval` chặn thêm nếu `deploy_ok=false`.
-- **Bonus 5 (cảnh báo lệch dữ liệu)**: `check_drift()` cảnh báo lớp nào
-  chiếm dưới 10% tổng mẫu train, ghi `label_distribution` +
-  `drift_warnings` vào `outputs/metrics.json`.
-- **Bonus 1 (DagsHub)**: kết nối repo với DagsHub
-  (`https://dagshub.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong`),
-  workflow tự bật bước "Configure remote MLflow tracking" khi 3 secret
-  `MLFLOW_TRACKING_URI/USERNAME/PASSWORD` được cấu hình. Verify thật qua run
-  [32450239074](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32450239074) —
-  cả 4 job xanh, run xuất hiện trên DagsHub Experiments UI.
+Cả 5 bonus đều nằm trong `src/train.py` và `.github/workflows/mlops.yml`,
+và mình verify thật trên CI/CD chứ không chỉ code chạy được cục bộ - run
+[32450239074](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32450239074)
+là bằng chứng cả 4 job xanh với đủ 5 bonus đang bật.
 
-**Tất cả 5 bonus đã hoàn thành và verify thật trên CI/CD** (không chỉ code
-tĩnh) — 4/4 job xanh hoàn toàn ở run trên.
+**Bonus 2 - đa thuật toán.** `model_type` trong `params.yaml` chọn giữa
+`random_forest`, `gradient_boosting`, `logistic_regression` qua
+`MODEL_REGISTRY`. Có test riêng (`test_train_with_gradient_boosting`) xác
+nhận đổi thuật toán vẫn chạy được.
+
+**Bonus 3 - báo cáo tự động.** `write_report()` tính confusion matrix cộng
+precision/recall cho từng lớp, ghi ra `outputs/report.txt`, rồi upload
+cùng `metrics.json` qua `actions/upload-artifact`.
+
+**Bonus 4 - rollback khi model tệ đi.** `fetch_previous_accuracy()` đọc
+`models/latest/metrics.json` đang có trên GCS, `should_deploy()` so với
+accuracy mới train ra. Job `Train` chỉ ghi đè `models/latest/` khi
+`deploy_ok=true`, và job `Eval` chặn thêm một lần nữa nếu `deploy_ok=false`
+- model mới kém hơn thì không có cách nào lọt qua được cả hai lớp kiểm tra.
+
+**Bonus 5 - cảnh báo lệch dữ liệu.** `check_drift()` rà phân phối nhãn
+trong tập train, cảnh báo nếu lớp nào tụt dưới 10% tổng mẫu, ghi cả
+`label_distribution` và `drift_warnings` vào `metrics.json`.
+
+**Bonus 1 - tracking từ xa qua DagsHub.** Kết nối repo với
+`https://dagshub.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong`,
+workflow tự bật bước "Configure remote MLflow tracking" khi 3 secret
+`MLFLOW_TRACKING_URI/USERNAME/PASSWORD` đã được cấu hình. Run log lên được
+DagsHub Experiments UI thật, xem từ máy nào cũng được, không cần vào VPN
+hay SSH vào máy mình.
 
 ## Khó khăn gặp phải và cách giải quyết
 
-- **`.dvc/config` chứa `credentialpath` tương đối** (`../sa-key.json`) chỉ
-  đúng trên máy cá nhân, hỏng trên GitHub Actions runner (401 Invalid
-  Credentials khi `dvc pull`). Sửa: bỏ `credentialpath`, dùng
-  `GOOGLE_APPLICATION_CREDENTIALS` (env var CI đã set) cho cả local lẫn CI.
-- **Repo là fork** của template giảng viên
-  (`VinUni-AI20k/K3-Track2-Day21-CI-CD-for-AI-Systems`) — GitHub mặc định
-  **tắt Actions-on-push cho repo fork**, dù `workflow_dispatch` (chạy tay)
-  vẫn hoạt động bình thường và API `actions/permissions` báo `enabled:true`
-  (gây nhầm lẫn). Đây là banner UI-only trong tab Actions
-  ("I understand my workflows, go ahead and enable them"), không có API/CLI
-  nào bật thay được. Sau khi bấm 1 lần, push tự trigger bình thường — đúng
-  yêu cầu "không cần thao tác thủ công" cho các lần sau.
-- **VM thiếu `src/serve.py` và `sa-key.json`** dù bước cấu hình VM báo
-  thành công — 2 lệnh `scp` với đường dẫn `~/...` không chạy đúng trên
-  Windows (`pscp` không hiểu `~` ở remote path), lỗi bị nuốt mất. Sửa: dùng
-  đường dẫn tuyệt đối (`/home/<user>/...`) khi `gcloud compute scp`.
-- **Google Cloud SDK Shell mặc định là cmd.exe**, không phải PowerShell —
-  cú pháp `$VAR = "..."` không chạy. Chuyển sang PowerShell thường (gcloud
-  đã có sẵn trong PATH hệ thống).
-- **DagsHub MLflow server trả 404** khi tạo run trên repo hoàn toàn trống
-  (chưa có experiment nào). `mlflow.start_run()` không tự tạo experiment
-  "Default" như file-store cục bộ. Sửa: gọi `mlflow.set_experiment(...)`
-  tường minh trong `train.py` trước `start_run()`.
-- **Health check deploy fail dù server chạy tốt**: `sleep 5` quá ngắn — model
-  RandomForest 300 cây tải từ GCS + unpickle mất ~8s. Sửa: retry loop 6 lần
-  x5s thay vì sleep cố định 1 lần.
-- **Project ID vs Project Name**: nhầm tên hiển thị project
-  (`track2-day16-...`) với Project ID thật (`mineral-aegis-505503-i2`) khi
-  `gcloud config set project`.
+Phần này dài hơn dự tính vì gặp mấy lỗi khá hóc búa, đáng ghi lại:
+
+- `.dvc/config` có dòng `credentialpath = ../sa-key.json`, đường dẫn tương
+  đối này chỉ đúng trên máy mình lúc tạo, còn trên GitHub Actions runner
+  thì trỏ ra ngoài repo, không tồn tại - `dvc pull` báo 401 Invalid
+  Credentials. Sửa bằng cách bỏ hẳn `credentialpath`, dùng
+  `GOOGLE_APPLICATION_CREDENTIALS` (biến môi trường CI đã set sẵn) cho cả
+  local lẫn CI luôn cho đồng nhất.
+
+- Repo của mình là fork từ template của thầy cô
+  (`VinUni-AI20k/K3-Track2-Day21-CI-CD-for-AI-Systems`). GitHub mặc định
+  tắt trigger `push` cho Actions trên repo fork, dù chạy tay
+  (`workflow_dispatch`) vẫn bình thường và API kiểm tra permission vẫn báo
+  `enabled: true` - dễ gây hiểu lầm là đã bật rồi. Hoá ra đây là một banner
+  chỉ hiện trên giao diện web, tab Actions, phải tự bấm "I understand my
+  workflows, go ahead and enable them" một lần, không có API hay CLI nào
+  làm thay được. Bấm xong thì `push` tự trigger bình thường từ đó về sau.
+
+- VM thiếu cả `src/serve.py` lẫn `sa-key.json` dù bước cấu hình VM báo
+  chạy xong không lỗi gì. Hoá ra hai lệnh `scp` dùng đường dẫn `~/...` ở
+  đích không chạy đúng trên Windows vì `pscp` (công cụ scp mà gcloud dùng
+  trên Windows) không hiểu ký hiệu `~`, và lỗi đó lại không hiện rõ ràng
+  lúc chạy. Đổi sang đường dẫn tuyệt đối `/home/<user>/...` là hết.
+
+- Google Cloud SDK Shell trên máy mình mặc định mở ra là cmd.exe chứ không
+  phải PowerShell, nên cú pháp `$VAR = "..."` báo lỗi ngay từ đầu. Chuyển
+  qua dùng PowerShell thường là được, vì `gcloud` đã nằm sẵn trong PATH hệ
+  thống rồi.
+
+- Kết nối DagsHub xong, `train.py` báo lỗi 404 khi tạo run. Do repo trên
+  DagsHub hoàn toàn trống, chưa có experiment nào, mà `mlflow.start_run()`
+  không tự tạo experiment "Default" như khi dùng file-store cục bộ. Thêm
+  một dòng `mlflow.set_experiment(...)` tường minh trước `start_run()` là
+  xong.
+
+- Deploy chạy xong, health check vẫn fail dù server thật ra đã chạy tốt
+  (SSH vào kiểm tra thấy service `active (running)`, gọi curl tay thì OK).
+  Chỉ là `sleep 5` quá ngắn - model RandomForest 300 cây tải về từ GCS rồi
+  unpickle mất gần 8 giây. Đổi sang retry loop 6 lần, mỗi lần cách nhau 5
+  giây, thay vì chỉ đợi 5 giây một lần.
+
+- Lúc `gcloud config set project`, mình nhầm tên hiển thị của project
+  (`track2-day16-...`) với Project ID thật
+  (`mineral-aegis-505503-i2`) - hai cái này khác nhau, `gcloud` cần đúng
+  Project ID.
