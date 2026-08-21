@@ -74,10 +74,15 @@ curl -X POST http://VM_IP:8000/predict -d '{"features": [7.4, 0.70, 0.00, 1.9, 0
 - **Bonus 5 (cảnh báo lệch dữ liệu)**: `check_drift()` cảnh báo lớp nào
   chiếm dưới 10% tổng mẫu train, ghi `label_distribution` +
   `drift_warnings` vào `outputs/metrics.json`.
-- **Bonus 1 (DagsHub)**: workflow đã có bước
-  "Configure remote MLflow tracking (optional, Bonus 1)", tự động bật khi
-  secret `MLFLOW_TRACKING_URI` được cấu hình — chưa kết nối tài khoản
-  DagsHub thật.
+- **Bonus 1 (DagsHub)**: kết nối repo với DagsHub
+  (`https://dagshub.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong`),
+  workflow tự bật bước "Configure remote MLflow tracking" khi 3 secret
+  `MLFLOW_TRACKING_URI/USERNAME/PASSWORD` được cấu hình. Verify thật qua run
+  [32450239074](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32450239074) —
+  cả 4 job xanh, run xuất hiện trên DagsHub Experiments UI.
+
+**Tất cả 5 bonus đã hoàn thành và verify thật trên CI/CD** (không chỉ code
+tĩnh) — 4/4 job xanh hoàn toàn ở run trên.
 
 ## Khó khăn gặp phải và cách giải quyết
 
@@ -100,6 +105,13 @@ curl -X POST http://VM_IP:8000/predict -d '{"features": [7.4, 0.70, 0.00, 1.9, 0
 - **Google Cloud SDK Shell mặc định là cmd.exe**, không phải PowerShell —
   cú pháp `$VAR = "..."` không chạy. Chuyển sang PowerShell thường (gcloud
   đã có sẵn trong PATH hệ thống).
+- **DagsHub MLflow server trả 404** khi tạo run trên repo hoàn toàn trống
+  (chưa có experiment nào). `mlflow.start_run()` không tự tạo experiment
+  "Default" như file-store cục bộ. Sửa: gọi `mlflow.set_experiment(...)`
+  tường minh trong `train.py` trước `start_run()`.
+- **Health check deploy fail dù server chạy tốt**: `sleep 5` quá ngắn — model
+  RandomForest 300 cây tải từ GCS + unpickle mất ~8s. Sửa: retry loop 6 lần
+  x5s thay vì sleep cố định 1 lần.
 - **Project ID vs Project Name**: nhầm tên hiển thị project
   (`track2-day16-...`) với Project ID thật (`mineral-aegis-505503-i2`) khi
   `gcloud config set project`.
