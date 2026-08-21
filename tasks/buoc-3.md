@@ -2,7 +2,6 @@
 
 Mục tiêu: Mô phỏng vai trò của một kỹ sư dữ liệu bổ sung thêm dữ liệu mới. Chỉ cần một lần `git push` là pipeline tự động huấn luyện lại và triển khai lại mà không cần bất kỳ thao tác thủ công nào.
 
-
 ---
 
 ## 3.1 Tìm Hiểu Quy Trình Trước Khi Bắt Đầu
@@ -117,9 +116,9 @@ Mô hình mới huấn luyện trên 5996 mẫu sẽ được phục vụ. Khôn
 Tải file `outputs/metrics.json` từ artifacts của hai lần chạy để so sánh:
 
 | Chỉ số | Bước 2 (2998 mẫu) | Bước 3 (5996 mẫu) |
-|---|---|---|
-| accuracy | ? | ? |
-| f1_score | ? | ? |
+| -------- | -------------------- | -------------------- |
+| accuracy | 0.6820                | 0.7460                |
+| f1_score | 0.6811                | 0.7449                |
 
 Điền vào bảng trên dựa trên kết quả thực tế của bạn. Nếu mô hình mới có accuracy cao hơn, điều đó chứng tỏ thêm dữ liệu làm tăng hiệu quả mô hình.
 
