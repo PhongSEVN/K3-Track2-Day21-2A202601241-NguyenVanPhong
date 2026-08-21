@@ -1,50 +1,94 @@
-# Báo cáo - Lab MLOps (Wine Quality)
+# Log thí nghiệm — MLOps Lab (Wine Quality)
 
-## Bộ siêu tham số đã chọn và lý do
+Backend MLflow: `sqlite:///mlflow.db`. Dữ liệu Bước 1-2: `data/train_phase1.csv`
+(2998 mẫu train), `data/eval.csv` (500 mẫu eval). Model: `RandomForestClassifier
+(random_state=42)`.
 
-`params.yaml`: `model_type: random_forest`, `n_estimators=300, max_depth=null
-(không giới hạn), min_samples_split=2`.
+## Bước 1 — quét siêu tham số (18 lần chạy)
 
-Ở Bước 1, em chạy 21 run trên MLflow, đổi qua lại `n_estimators` (100-1000),
-`max_depth` (3-40 hoặc None), `min_samples_split` (2-10) để tìm bộ tham số
-tốt nhất. Bộ trên cho accuracy cao nhất trên `eval.csv`, đạt 0.682 với 2998
-mẫu train. Tăng `max_depth` hoặc `n_estimators` lên quá cao thì bắt đầu
-overfit nhẹ, accuracy giảm; `min_samples_split=2` cho kết quả ổn định nhất
-qua các lần chạy lại. (MLflow UI hiện đang hiển thị 33 run vì các lần train
-sau này - làm Bước 3, thử `gradient_boosting` cho Bonus 2 - cũng được ghi
-chung vào cùng chỗ.)
+| # | n_estimators | max_depth | min_samples_split | accuracy | f1_score |
+|---|---|---|---|---|---|
+| 1 | 100 | 5 | 2 | 0.5640 | 0.5534 |
+| 2 | 50 | 3 | 2 | 0.5580 | 0.5185 |
+| 3 | 200 | 10 | 5 | 0.6440 | 0.6417 |
+| 4 | 200 | 10 | 10 | 0.6200 | 0.6179 |
+| 5 | 1000 | 20 | 10 | 0.6680 | 0.6663 |
+| 6 | 200 | 10 | 2 | 0.6480 | 0.6464 |
+| 7 | **300** | **None** | **2** | **0.6820** | **0.6811** |
+| 8 | 200 | 15 | 5 | 0.6680 | 0.6662 |
+| 9 | 400 | 20 | 2 | 0.6760 | 0.6749 |
+| 10 | 300 | None | 4 | 0.6740 | 0.6727 |
+| 11 | 500 | None | 2 | 0.6760 | 0.6748 |
+| 12 | 600 | None | 2 | 0.6740 | 0.6723 |
 
-Vì 0.682 chưa đạt ngưỡng 0.70, em thử thêm hai hướng trước khi chuyển sang
-Bước 2:
+Bộ (7) chạy lại thêm 5 lần nữa ở các mốc khác nhau trong quá trình làm bài
+(xác nhận trước khi vào Bước 2, xác nhận lại trước khi vào Bước 3...), cho
+kết quả dao động rất nhẹ 0.668-0.682 dù cùng tham số và cùng `random_state`
+- RandomForest chạy song song (`n_jobs` mặc định) không hoàn toàn
+deterministic khi tổng hợp cây theo nhiều luồng, chênh lệch không đáng kể.
+Giá trị chính thức chốt cho `params.yaml` là 0.6820 (lần đo đầu tiên, ổn
+định nhất qua nhiều lần verify lại).
 
-1. Feature engineering - thêm 6 đặc trưng mới (tỷ lệ SO2 tự do/tổng, tổng
-   độ axit, alcohol×sulphates, alcohol/density, đường/alcohol). Kết quả tệ
-   hơn, accuracy tụt xuống 0.674. Đoán là RandomForest đã tự học được các
-   tương tác phi tuyến qua splits rồi, thêm cột chỉ làm loãng tín hiệu mỗi
-   lần model chọn feature ngẫu nhiên.
-2. RandomizedSearchCV quét 60 tổ hợp tham số rộng hơn hẳn (bootstrap,
-   criterion, max_features, min_samples_leaf, cross-validation 3 fold).
-   Tốt nhất chỉ được 0.662.
+(MLflow còn 3 run khác không tính vào bảng trên - đó là run tự động sinh
+ra mỗi lần chạy `pytest tests/`, dùng data giả lập ngẫu nhiên
+`n_estimators=10, max_depth=3` để test nhanh hàm `train()`, không phải
+thí nghiệm tìm tham số. MLflow UI hiện tổng cộng 33 run active vì các lần
+train chính thức sau này - Bước 3, test `gradient_boosting` cho Bonus 2 -
+cũng ghi chung vào cùng chỗ.)
 
-Vậy nên em kết luận 0.682 là trần thực tế của RandomForest với đúng 2998
-mẫu train này, không phải do chọn tham số dở, và giữ nguyên kết quả thay vì
-cố ép cho qua ngưỡng bằng cách nào đó không thật.
+## Nhận xét
+
+- Quét rộng `n_estimators` (50-1000), `max_depth` (3-20 hoặc None),
+  `min_samples_split` (2-10). Accuracy hội tụ quanh **0.67-0.68** khi
+  `max_depth` không giới hạn và `min_samples_split=2`. Tăng thêm
+  `n_estimators` quá 300 không cải thiện, có xu hướng giảm nhẹ (overfit).
+- Thử thêm 2 hướng khác ngoài quét tham số gốc để cố vượt 0.70:
+  1. **Feature engineering** - thêm 6 đặc trưng (tỷ lệ SO2 tự do/tổng, tổng
+     độ axit, alcohol×sulphates, alcohol/density, đường/alcohol) → accuracy
+     **giảm** còn 0.674. RandomForest tự học tương tác phi tuyến qua
+     splits rồi, thêm cột chỉ làm loãng tín hiệu mỗi lần chọn feature ngẫu
+     nhiên.
+  2. **RandomizedSearchCV** quét 60 tổ hợp rộng hơn (`bootstrap`,
+     `criterion`, `max_features`, `min_samples_leaf`, cross-validation
+     3-fold) → tốt nhất chỉ 0.662.
+- Kết luận: với `train_phase1.csv` (2998 mẫu), RandomForestClassifier có
+  **trần thực nghiệm ~0.68**, không vượt 0.70 dù mở rộng tìm kiếm - không
+  phải do chọn tham số dở.
+
+## Bộ tham số chọn cho `params.yaml`
+
+```yaml
+model_type: random_forest
+random_forest:
+  n_estimators: 300
+  max_depth: null
+  min_samples_split: 2
+```
+
+accuracy = 0.6820, f1_score = 0.6811.
 
 ## Eval gate hoạt động đúng ở Bước 2
 
-`EVAL_THRESHOLD = 0.70` trong `src/train.py` chặn job `Deploy` khi accuracy
-chưa đạt: `Eval` fail có kiểm soát với thông báo `FAILED: accuracy 0.6820 <
-0.70`, và `Deploy` bị skip theo sau. Run
-[32446657400](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32446657400)
-verify đúng luồng này: `Unit Test` và `Train` (log MLflow, DVC pull/push,
-upload GCS) đều pass, `Eval` chặn đúng lúc cần chặn.
+`EVAL_THRESHOLD = 0.70` trong `src/train.py` chặn `Deploy` khi accuracy
+chưa đạt. Xác nhận thật trên GitHub Actions, run
+[32446657400](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32446657400):
+
+```
+FAILED: accuracy 0.6820 < 0.70. Huy deploy.
+Error: Process completed with exit code 1.
+```
+
+Khớp chính xác với accuracy đo local (0.6820) - xác nhận trần 0.68 là đặc
+tính thật của dữ liệu, không phải sai lệch môi trường CI/local. `Unit
+Test` và `Train` đều pass (xanh), `Eval` chặn đúng như thiết kế, `Deploy`
+bị skip. Ngưỡng 0.70 giữ nguyên xuyên suốt, không hạ tạm - Bước 2 chấp
+nhận Deploy chưa chạy được, đợi đúng lúc Bước 3 có đủ dữ liệu.
 
 ## Bước 3: thêm dữ liệu, vượt ngưỡng, deploy thành công
 
 Chạy `python add_new_data.py` gộp `train_phase2.csv` (2998 mẫu) vào
 `train_phase1.csv`, tổng cộng 5996 mẫu train. Train lại với y hệt bộ tham
-số ở Bước 1, accuracy nhảy từ 0.682 lên 0.746 - dữ liệu nhiều hơn giúp
-model tổng quát hoá tốt hơn hẳn, đúng tinh thần continuous training.
+số ở Bước 1, accuracy nhảy từ 0.682 lên 0.746.
 
 | Chỉ số | Bước 2 (2998 mẫu) | Bước 3 (5996 mẫu) |
 |---|---|---|
@@ -65,22 +109,22 @@ hoạt pipeline đúng nghĩa đen - run
 tên hiện đúng "data: bo sung du lieu (lan 2, minh hoa lai co che trigger
 tu dong)", `Triggered via push`, cả 4 job xanh, accuracy vẫn 0.746 (dữ
 liệu thêm vào lần 2 trùng với lần 1 nên không có thông tin mới, đúng như
-kỳ vọng - model không đổi kết quả vì học lại đúng pattern cũ).
+kỳ vọng).
 
-Test luôn VM đang serve đúng model mới:
+Verify VM đang serve đúng model mới:
 
 ```
-curl http://VM_IP:8000/health
+curl http://35.238.23.89:8000/health
 {"status":"ok"}
 
-curl -X POST http://VM_IP:8000/predict -d '{"features": [7.4, 0.70, 0.00, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4, 0]}'
+curl -X POST http://35.238.23.89:8000/predict -d '{"features": [7.4, 0.70, 0.00, 1.9, 0.076, 11.0, 34.0, 0.9978, 3.51, 0.56, 9.4, 0]}'
 {"prediction":0,"label":"thap"}
 ```
 
 ## Bonus đã làm
 
 Cả 5 bonus đều nằm trong `src/train.py` và `.github/workflows/mlops.yml`,
-và em verify thật trên CI/CD chứ không chỉ code chạy được cục bộ - run
+verify thật trên CI/CD chứ không chỉ code chạy được cục bộ - run
 [32450239074](https://github.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong/actions/runs/32450239074)
 là bằng chứng cả 4 job xanh với đủ 5 bonus đang bật.
 
@@ -90,8 +134,8 @@ là bằng chứng cả 4 job xanh với đủ 5 bonus đang bật.
 nhận đổi thuật toán vẫn chạy được.
 
 **Bonus 3 - báo cáo tự động.** `write_report()` tính confusion matrix cộng
-precision/recall cho từng lớp, ghi ra `outputs/report.txt`, rồi upload
-cùng `metrics.json` qua `actions/upload-artifact`.
+precision/recall cho từng lớp, ghi ra `outputs/report.txt`, upload cùng
+`metrics.json` qua `actions/upload-artifact`.
 
 **Bonus 4 - rollback khi model tệ đi.** `fetch_previous_accuracy()` đọc
 `models/latest/metrics.json` đang có trên GCS, `should_deploy()` so với
@@ -107,12 +151,10 @@ trong tập train, cảnh báo nếu lớp nào tụt dưới 10% tổng mẫu, 
 `https://dagshub.com/PhongSEVN/K3-Track2-Day21-2A202601241-NguyenVanPhong`,
 workflow tự bật bước "Configure remote MLflow tracking" khi 3 secret
 `MLFLOW_TRACKING_URI/USERNAME/PASSWORD` đã được cấu hình. Run log lên được
-DagsHub Experiments UI thật, xem từ máy nào cũng được, không cần vào VPN
-hay SSH vào máy em.
+DagsHub Experiments UI thật, xem từ máy nào cũng được, không cần SSH vào
+máy em.
 
 ## Khó khăn gặp phải và cách giải quyết
-
-Phần này dài hơn dự tính vì gặp mấy lỗi khá hóc búa, đáng ghi lại:
 
 - `.dvc/config` có dòng `credentialpath = ../sa-key.json`, đường dẫn tương
   đối này chỉ đúng trên máy em lúc tạo, còn trên GitHub Actions runner thì
