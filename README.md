@@ -4,7 +4,6 @@ Course: AIInAction - VinUni
 Buổi: Day 21 - CI/CD cho AI Systems
 Khoá: K3
 
-
 ---
 
 ## Mục Tiêu Học Tập
@@ -75,36 +74,36 @@ Nguồn: https://archive.ics.uci.edu/dataset/186/wine+quality
 
 Đặc trưng đầu vào (12 cột):
 
-| Tên cột | Mô tả |
-|---|---|
-| fixed_acidity | Độ axit cố định |
-| volatile_acidity | Độ axit bay hơi |
-| citric_acid | Axit citric |
-| residual_sugar | Lượng đường còn lại |
-| chlorides | Nồng độ clorua |
-| free_sulfur_dioxide | SO2 tự do |
-| total_sulfur_dioxide | Tổng SO2 |
-| density | Mật độ |
-| pH | Độ pH |
-| sulphates | Sunphat |
-| alcohol | Nồng độ cồn |
-| wine_type | Loại rượu (0 = đỏ, 1 = trắng) |
+| Tên cột            | Mô tả                             |
+| -------------------- | ----------------------------------- |
+| fixed_acidity        | Độ axit cố định                |
+| volatile_acidity     | Độ axit bay hơi                  |
+| citric_acid          | Axit citric                         |
+| residual_sugar       | Lượng đường còn lại          |
+| chlorides            | Nồng độ clorua                   |
+| free_sulfur_dioxide  | SO2 tự do                          |
+| total_sulfur_dioxide | Tổng SO2                           |
+| density              | Mật độ                           |
+| pH                   | Độ pH                             |
+| sulphates            | Sunphat                             |
+| alcohol              | Nồng độ cồn                     |
+| wine_type            | Loại rượu (0 = đỏ, 1 = trắng) |
 
 Nhãn dự đoán (cột `target`):
 
-| Giá trị | Ý nghĩa | Điểm chất lượng gốc |
-|---|---|---|
-| 0 | Chất lượng thấp | 3 - 5 |
-| 1 | Chất lượng trung bình | 6 |
-| 2 | Chất lượng cao | 7 - 9 |
+| Giá trị | Ý nghĩa                 | Điểm chất lượng gốc |
+| --------- | ------------------------- | ------------------------- |
+| 0         | Chất lượng thấp       | 3 - 5                     |
+| 1         | Chất lượng trung bình | 6                         |
+| 2         | Chất lượng cao         | 7 - 9                     |
 
 Phân chia dữ liệu:
 
-| File | Số mẫu | Mục đích |
-|---|---|---|
-| data/train_phase1.csv | 2998 | Huấn luyện ở Bước 1 và 2 |
-| data/eval.csv | 500 | Đánh giá mô hình (held-out set, không bao giờ dùng để huấn luyện) |
-| data/train_phase2.csv | 2998 | Dữ liệu mới bổ sung ở Bước 3 |
+| File                  | Số mẫu | Mục đích                                                                   |
+| --------------------- | -------- | ----------------------------------------------------------------------------- |
+| data/train_phase1.csv | 2998     | Huấn luyện ở Bước 1 và 2                                                |
+| data/eval.csv         | 500      | Đánh giá mô hình (held-out set, không bao giờ dùng để huấn luyện) |
+| data/train_phase2.csv | 2998     | Dữ liệu mới bổ sung ở Bước 3                                           |
 
 Chạy script sau một lần duy nhất để tải và chia dữ liệu:
 
@@ -212,11 +211,11 @@ pyyaml==6.0.1
 
 ## Hướng Dẫn Lab
 
-| Bước | Nội dung | File hướng dẫn |
-|---|---|---|
-| 1 | Thực nghiệm cục bộ và theo dõi bằng MLflow | tasks/buoc-1.md |
-| 2 | Pipeline CI/CD tự động với GitHub Actions và DVC | tasks/buoc-2.md |
-| 3 | Huấn luyện liên tục khi có dữ liệu mới | tasks/buoc-3.md |
+| Bước | Nội dung                                             | File hướng dẫn |
+| ------ | ----------------------------------------------------- | ----------------- |
+| 1      | Thực nghiệm cục bộ và theo dõi bằng MLflow     | tasks/buoc-1.md   |
+| 2      | Pipeline CI/CD tự động với GitHub Actions và DVC | tasks/buoc-2.md   |
+| 3      | Huấn luyện liên tục khi có dữ liệu mới        | tasks/buoc-3.md   |
 
 Bắt đầu từ [Bước 1](tasks/buoc-1.md).
 
@@ -226,26 +225,26 @@ Bắt đầu từ [Bước 1](tasks/buoc-1.md).
 
 ### Tiêu chí chính (80 điểm)
 
-| Hạng mục | Tiêu chí đánh giá | Điểm tối đa |
-|---|---|---|
-| Bước 1 - MLflow tracking | MLflow UI hiển thị ít nhất 3 lần chạy với các siêu tham số khác nhau | 12 |
-| Bước 1 - Độ đo | Mỗi lần chạy ghi nhận đủ cả `accuracy` và `f1_score` | 8 |
-| Bước 1 - Phân tích | Xác định và giải thích bộ siêu tham số tốt nhất | 4 |
-| Bước 2 - DVC | Remote đã cấu hình, `dvc push` thành công, dữ liệu hiển thị trên cloud storage | 12 |
-| Bước 2 - CI/CD | Cả bốn GitHub Actions jobs (Test, Train, Eval, Deploy) đều qua (màu xanh) | 16 |
-| Bước 2 - Eval gate | Deploy job tự động bị chặn khi accuracy dưới ngưỡng 0.70 | 4 |
-| Bước 2 - Serving | VM trả về kết quả đúng tại endpoint POST /predict | 12 |
-| Bước 3 - Tự động hóa | Một commit dữ liệu mới kích hoạt toàn bộ pipeline không cần tác động thủ công | 12 |
-| Tổng | | 80 |
+| Hạng mục                 | Tiêu chí đánh giá                                                                       | Điểm tối đa |
+| -------------------------- | -------------------------------------------------------------------------------------------- | --------------- |
+| Bước 1 - MLflow tracking | MLflow UI hiển thị ít nhất 3 lần chạy với các siêu tham số khác nhau              | 12              |
+| Bước 1 - Độ đo        | Mỗi lần chạy ghi nhận đủ cả`accuracy` và `f1_score`                              | 8               |
+| Bước 1 - Phân tích     | Xác định và giải thích bộ siêu tham số tốt nhất                                   | 4               |
+| Bước 2 - DVC             | Remote đã cấu hình,`dvc push` thành công, dữ liệu hiển thị trên cloud storage   | 12              |
+| Bước 2 - CI/CD           | Cả bốn GitHub Actions jobs (Test, Train, Eval, Deploy) đều qua (màu xanh)               | 16              |
+| Bước 2 - Eval gate       | Deploy job tự động bị chặn khi accuracy dưới ngưỡng 0.70                            | 4               |
+| Bước 2 - Serving         | VM trả về kết quả đúng tại endpoint POST /predict                                     | 12              |
+| Bước 3 - Tự động hóa | Một commit dữ liệu mới kích hoạt toàn bộ pipeline không cần tác động thủ công | 12              |
+| Tổng                      |                                                                                              | 80              |
 
 ### Thang điểm chi tiết
 
-| Khoảng điểm | Nhận xét |
-|---|---|
-| 90 - 100 | Xuất sắc. Toàn bộ pipeline hoạt động chính xác, đầy đủ bằng chứng và có điểm bonus. |
-| 72 - 89 | Tốt. Hoàn thành toàn bộ tiêu chí chính, có thể còn thiếu một phần bằng chứng. |
-| 56 - 71 | Đạt yêu cầu tối thiểu. Hoàn thành được các bước chính nhưng còn lỗi hoặc thiếu bước. |
-| Dưới 56 | Chưa đạt. Nhiều phần chưa được thực hiện hoặc không hoạt động. |
+| Khoảng điểm | Nhận xét                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| 90 - 100       | Xuất sắc. Toàn bộ pipeline hoạt động chính xác, đầy đủ bằng chứng và có điểm bonus.     |
+| 72 - 89        | Tốt. Hoàn thành toàn bộ tiêu chí chính, có thể còn thiếu một phần bằng chứng.              |
+| 56 - 71        | Đạt yêu cầu tối thiểu. Hoàn thành được các bước chính nhưng còn lỗi hoặc thiếu bước. |
+| Dưới 56      | Chưa đạt. Nhiều phần chưa được thực hiện hoặc không hoạt động.                             |
 
 ### Hướng dẫn nộp bài
 
